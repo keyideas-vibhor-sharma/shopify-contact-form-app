@@ -17,7 +17,7 @@ import {
   Box,
   EmptyState,
 } from "@shopify/polaris";
-import { EditIcon } from "@shopify/polaris-icons";
+import { EditIcon, DeleteIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
@@ -50,12 +50,34 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json({ submissions });
 };
 
-// 2. ACTION: Update First and Last Name (Email and Mobile are immutable/locked)
+// 2. ACTION: Update First and Last Name OR Delete Submission
 export const action = async ({ request }: ActionFunctionArgs) => {
   await authenticate.admin(request);
 
   const formData = await request.formData();
+  const actionType = (formData.get("actionType") as string) || "update";
   const id = formData.get("id") as string;
+
+  if (!id) {
+    return json({ success: false, error: "Missing submission ID.", message: "" }, { status: 400 });
+  }
+
+  // 2A. Handle DELETE action
+  if (actionType === "delete") {
+    try {
+      await db.contactSubmission.delete({
+        where: { id },
+      });
+      return json({ success: true, message: "Contact submission deleted successfully!", error: "" });
+    } catch (err: any) {
+      return json(
+        { success: false, error: "Failed to delete submission: " + (err.message || "Unknown error"), message: "" },
+        { status: 500 }
+      );
+    }
+  }
+
+  // 2B. Handle UPDATE action (First and Last Name only)
   const firstName = (formData.get("firstName") as string || "").trim();
   const lastName = (formData.get("lastName") as string || "").trim();
 
@@ -110,6 +132,10 @@ export default function SubmissionsDashboard() {
   const [editLastName, setEditLastName] = useState("");
   const [validationError, setValidationError] = useState("");
 
+  // Modal State for Deleting a Submission
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<SubmissionRecord | null>(null);
+
   const handleOpenEditModal = (record: SubmissionRecord) => {
     setActiveRecord(record);
     setEditFirstName(record.firstName);
@@ -122,6 +148,29 @@ export default function SubmissionsDashboard() {
     setModalOpen(false);
     setActiveRecord(null);
     setValidationError("");
+  };
+
+  const handleOpenDeleteModal = (record: SubmissionRecord) => {
+    setRecordToDelete(record);
+    setDeleteModalOpen(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setRecordToDelete(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!recordToDelete) return;
+    submit(
+      {
+        actionType: "delete",
+        id: recordToDelete.id,
+      },
+      { method: "post" }
+    );
+    setDeleteModalOpen(false);
+    setRecordToDelete(null);
   };
 
   const handleSaveChanges = () => {
@@ -158,6 +207,7 @@ export default function SubmissionsDashboard() {
 
     submit(
       {
+        actionType: "update",
         id: activeRecord.id,
         firstName: trimmedFirst,
         lastName: trimmedLast,
@@ -214,13 +264,24 @@ export default function SubmissionsDashboard() {
           </Text>
         </IndexTable.Cell>
         <IndexTable.Cell>
-          <Button
-            icon={EditIcon}
-            onClick={() => handleOpenEditModal(record)}
-            accessibilityLabel={`Edit ${firstName} ${lastName}`}
-          >
-            Edit Name
-          </Button>
+          <InlineStack gap="200" blockAlign="center">
+            <Button
+              icon={EditIcon}
+              onClick={() => handleOpenEditModal(record)}
+              accessibilityLabel={`Edit ${firstName} ${lastName}`}
+            >
+              Edit Name
+            </Button>
+            <Button
+              icon={DeleteIcon}
+              tone="critical"
+              variant="tertiary"
+              onClick={() => handleOpenDeleteModal(record)}
+              accessibilityLabel={`Delete ${firstName} ${lastName}`}
+            >
+              Delete
+            </Button>
+          </InlineStack>
         </IndexTable.Cell>
       </IndexTable.Row>
     );
@@ -348,6 +409,42 @@ export default function SubmissionsDashboard() {
                 autoComplete="tel"
                 helpText="Mobile number cannot be changed."
               />
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
+      )}
+
+      {/* MODAL: Delete Confirmation */}
+      {recordToDelete && (
+        <Modal
+          open={deleteModalOpen}
+          onClose={handleCloseDeleteModal}
+          title="Delete Contact Inquiry?"
+          primaryAction={{
+            content: "Delete Submission",
+            destructive: true,
+            onAction: handleConfirmDelete,
+            loading: isSaving,
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: handleCloseDeleteModal,
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="300">
+              <Text as="p" variant="bodyMd">
+                Are you sure you want to delete the submission for{" "}
+                <strong>
+                  {recordToDelete.firstName} {recordToDelete.lastName}
+                </strong>{" "}
+                (<code>{recordToDelete.email}</code>)?
+              </Text>
+              <Banner tone="warning">
+                <p>This action is permanent and cannot be undone.</p>
+              </Banner>
             </BlockStack>
           </Modal.Section>
         </Modal>
