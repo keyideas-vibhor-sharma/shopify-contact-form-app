@@ -67,6 +67,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ success: false, error: "First Name and Last Name cannot be empty.", message: "" }, { status: 400 });
   }
 
+  const nameRegex = /^[a-zA-Z\s'-]+$/;
+  if (/\d/.test(firstName) || !nameRegex.test(firstName)) {
+    return json({ success: false, error: "Numbers and invalid characters are not allowed in First Name.", message: "" }, { status: 400 });
+  }
+  if (firstName.length < 2) {
+    return json({ success: false, error: "First Name must be at least 2 characters long.", message: "" }, { status: 400 });
+  }
+
+  if (/\d/.test(lastName) || !nameRegex.test(lastName)) {
+    return json({ success: false, error: "Numbers and invalid characters are not allowed in Last Name.", message: "" }, { status: 400 });
+  }
+  if (lastName.length < 2) {
+    return json({ success: false, error: "Last Name must be at least 2 characters long.", message: "" }, { status: 400 });
+  }
+
   // Update ONLY first and last name.
   // Email and mobile are strictly omitted to guarantee backend data security.
   await db.contactSubmission.update({
@@ -110,8 +125,32 @@ export default function SubmissionsDashboard() {
   };
 
   const handleSaveChanges = () => {
-    if (!editFirstName.trim() || !editLastName.trim()) {
+    const trimmedFirst = editFirstName.trim();
+    const trimmedLast = editLastName.trim();
+    const nameRegex = /^[a-zA-Z\s'-]+$/;
+
+    if (!trimmedFirst || !trimmedLast) {
       setValidationError("Both First Name and Last Name are required.");
+      return;
+    }
+
+    if (/\d/.test(trimmedFirst) || !nameRegex.test(trimmedFirst)) {
+      setValidationError("Numbers and special characters are not allowed in First Name.");
+      return;
+    }
+
+    if (trimmedFirst.length < 2) {
+      setValidationError("First Name must be at least 2 characters long.");
+      return;
+    }
+
+    if (/\d/.test(trimmedLast) || !nameRegex.test(trimmedLast)) {
+      setValidationError("Numbers and special characters are not allowed in Last Name.");
+      return;
+    }
+
+    if (trimmedLast.length < 2) {
+      setValidationError("Last Name must be at least 2 characters long.");
       return;
     }
 
@@ -120,8 +159,8 @@ export default function SubmissionsDashboard() {
     submit(
       {
         id: activeRecord.id,
-        firstName: editFirstName.trim(),
-        lastName: editLastName.trim(),
+        firstName: trimmedFirst,
+        lastName: trimmedLast,
       },
       { method: "post" }
     );
@@ -274,17 +313,23 @@ export default function SubmissionsDashboard() {
               <TextField
                 label="First Name"
                 value={editFirstName}
-                onChange={setEditFirstName}
+                onChange={(val) => {
+                  setEditFirstName(val.replace(/[0-9]/g, ""));
+                  if (validationError) setValidationError("");
+                }}
                 autoComplete="given-name"
-                helpText="Editable field."
+                helpText="No numbers allowed (letters only)."
               />
 
               <TextField
                 label="Last Name"
                 value={editLastName}
-                onChange={setEditLastName}
+                onChange={(val) => {
+                  setEditLastName(val.replace(/[0-9]/g, ""));
+                  if (validationError) setValidationError("");
+                }}
                 autoComplete="family-name"
-                helpText="Editable field."
+                helpText="No numbers allowed (letters only)."
               />
 
               {/* Locked/Read-Only Fields */}

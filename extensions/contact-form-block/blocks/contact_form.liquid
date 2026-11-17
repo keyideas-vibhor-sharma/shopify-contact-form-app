@@ -41,22 +41,135 @@
   const statusDiv = document.getElementById('contactFormStatus');
   const apiInput = document.getElementById('app_api_url');
 
+  const firstNameInput = document.getElementById('contact_first_name');
+  const lastNameInput = document.getElementById('contact_last_name');
+  const emailInput = document.getElementById('contact_email');
+  const mobileInput = document.getElementById('contact_mobile');
+
   if (!form) return;
+
+  // Real-time input filters to prevent invalid characters from being typed
+  // 1. No numbers allowed in First Name & Last Name
+  [firstNameInput, lastNameInput].forEach(function(input) {
+    if (!input) return;
+    input.addEventListener('input', function() {
+      if (/[0-9]/.test(this.value)) {
+        this.value = this.value.replace(/[0-9]/g, '');
+      }
+      this.style.borderColor = '#c9cccf';
+    });
+  });
+
+  // 2. No alphabets allowed in Mobile Number
+  if (mobileInput) {
+    mobileInput.addEventListener('input', function() {
+      if (/[a-zA-Z]/.test(this.value)) {
+        this.value = this.value.replace(/[a-zA-Z]/g, '');
+      }
+      this.style.borderColor = '#c9cccf';
+    });
+  }
+
+  if (emailInput) {
+    emailInput.addEventListener('input', function() {
+      this.style.borderColor = '#c9cccf';
+    });
+  }
+
+  function showError(msg, targetInput) {
+    statusDiv.style.display = 'block';
+    statusDiv.style.backgroundColor = '#fbeae5';
+    statusDiv.style.color = '#bf0711';
+    statusDiv.style.border = '1px solid #bf0711';
+    statusDiv.textContent = msg;
+    if (targetInput) {
+      targetInput.style.borderColor = '#bf0711';
+      targetInput.focus();
+    }
+  }
 
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
+
+    // Reset styles
+    [firstNameInput, lastNameInput, emailInput, mobileInput].forEach(function(el) {
+      if (el) el.style.borderColor = '#c9cccf';
+    });
+    statusDiv.style.display = 'none';
+
+    const firstName = (firstNameInput ? firstNameInput.value : '').trim();
+    const lastName = (lastNameInput ? lastNameInput.value : '').trim();
+    const email = (emailInput ? emailInput.value : '').trim();
+    const mobile = (mobileInput ? mobileInput.value : '').trim();
+
+    // --- FORM VALIDATIONS ---
+    const nameRegex = /^[a-zA-Z\s'-]+$/;
+
+    // 1. First Name: No numbers allowed & valid length
+    if (!firstName) {
+      showError('Please enter your First Name.', firstNameInput);
+      return;
+    }
+    if (/\d/.test(firstName) || !nameRegex.test(firstName)) {
+      showError('Numbers and special characters are not allowed in First Name.', firstNameInput);
+      return;
+    }
+    if (firstName.length < 2) {
+      showError('First Name must be at least 2 characters long.', firstNameInput);
+      return;
+    }
+
+    // 2. Last Name: No numbers allowed & valid length
+    if (!lastName) {
+      showError('Please enter your Last Name.', lastNameInput);
+      return;
+    }
+    if (/\d/.test(lastName) || !nameRegex.test(lastName)) {
+      showError('Numbers and special characters are not allowed in Last Name.', lastNameInput);
+      return;
+    }
+    if (lastName.length < 2) {
+      showError('Last Name must be at least 2 characters long.', lastNameInput);
+      return;
+    }
+
+    // 3. Email: Proper email format check with valid domain and at least 2-character TLD
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!email || !emailRegex.test(email)) {
+      showError('Please enter a valid email address (e.g., name@example.com).', emailInput);
+      return;
+    }
+
+    // 4. Mobile: No alphabets allowed & appropriate length check (10 to 15 digits)
+    if (!mobile) {
+      showError('Please enter your Mobile Number.', mobileInput);
+      return;
+    }
+    if (/[a-zA-Z]/.test(mobile)) {
+      showError('Alphabets are not allowed in Mobile Number.', mobileInput);
+      return;
+    }
+    const phoneCharsRegex = /^[\+]?[0-9\s\-\(\)]+$/;
+    if (!phoneCharsRegex.test(mobile)) {
+      showError('Mobile number contains invalid characters. Use only digits, +, -, or ().', mobileInput);
+      return;
+    }
+    const digitsOnly = mobile.replace(/\D/g, '');
+    if (digitsOnly.length < 10 || digitsOnly.length > 15) {
+      showError('Mobile number must be between 10 and 15 digits (currently ' + digitsOnly.length + ' digits).', mobileInput);
+      return;
+    }
 
     // Disable button and show loading state
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting...';
     submitBtn.style.opacity = '0.7';
-    statusDiv.style.display = 'none';
 
     const payload = {
-      firstName: document.getElementById('contact_first_name').value.trim(),
-      lastName: document.getElementById('contact_last_name').value.trim(),
-      email: document.getElementById('contact_email').value.trim(),
-      mobile: document.getElementById('contact_mobile').value.trim(),
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      mobile: mobile,
       shop: window.Shopify ? window.Shopify.shop : window.location.hostname
     };
 
