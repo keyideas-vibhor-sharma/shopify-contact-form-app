@@ -2,7 +2,7 @@
 
 client_id = "ededd048b1cfecb73030a5e024bd00d2"
 name = "contact-form-app"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://shopify-contact-form-app.onrender.com"
 embedded = true
 
 [access_scopes]
@@ -22,7 +22,7 @@ api_version = "2025-01"
 
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [ "https://shopify-contact-form-app.onrender.com/api/auth" ]
 
 [app_proxy]
 url = "/api/contact"
